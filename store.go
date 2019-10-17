@@ -29,41 +29,69 @@ func NewEventsStore() eventsdb.IEventsDB {
 	return &eventsStore{db: db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data"))}
 }
 
-func (e *eventsStore) AddEvent(height uint64, event events.Event) {
-	e.pending.Lock()
-	defer e.pending.Unlock()
-	if e.pending.height != height {
-		e.pending.items = events.Events{}
+func (store *eventsStore) AddEvent(height uint64, event events.Event) {
+	store.pending.Lock()
+	defer store.pending.Unlock()
+	if store.pending.height != height {
+		store.pending.items = events.Events{}
 	}
-	e.pending.items = append(e.pending.items, event)
-	e.pending.height = height
+	store.pending.items = append(store.pending.items, event)
+	store.pending.height = height
 }
 
-func (e *eventsStore) LoadEvents(height uint64) events.Events {
+func (store *eventsStore) LoadEvents(height uint64) events.Events {
 	panic("implement me")
 }
 
-func (e *eventsStore) FlushEvents() error {
-	e.pending.Lock()
-	defer e.pending.Unlock()
-	for _, item := range e.pending.items {
-		switch item.(type) {
-		case events.RewardEvent:
+func (store *eventsStore) FlushEvents() error {
+	store.pending.Lock()
+	defer store.pending.Unlock()
+	var data []interface{}
+	for _, item := range store.pending.items {
+		data = append(data, store.convert(item))
+	}
 
-		case events.UnbondEvent:
+	bytes, err := cdc.MarshalBinaryBare(data)
+	if err != nil {
+		return err
+	}
 
-		case events.SlashEvent:
+	store.Lock()
+	defer store.Unlock()
+	store.db.Set(getKeyForHeight(store.pending.height), bytes)
+	return nil
+}
 
-		case events.CoinLiquidationEvent:
+func (store *eventsStore) convert(event events.Event) interface{} {
+	var res interface{}
+	switch event.(type) {
+	case *events.RewardEvent:
+		res = store.convertReward(event.(*events.RewardEvent))
+	case *events.UnbondEvent:
+		// todo: res = store.convertUnbound(event.(*events.UnbondEvent))
+	case *events.SlashEvent:
+		// todo: res = store.convertSlash(event.(*events.SlashEvent))
+	case *events.CoinLiquidationEvent:
 
+	}
+	return res
+}
+
+func (store *eventsStore) convertReward(rewardEvent *events.RewardEvent) interface{} {
+	return rewardConvert(rewardEvent, store.Key(rewardEvent))
+}
+
+func (store *eventsStore) Key(rewardEvent *events.RewardEvent) uint8 {
+	for id, v := range store.pubKeys {
+		if string(v[:]) == string(rewardEvent.ValidatorPubKey) {
+			return id
 		}
 	}
-	var data []byte
-	// todo: data =
-	e.Lock()
-	defer e.Unlock()
-	e.db.Set(getKeyForHeight(e.pending.height), data)
-	return nil
+	var key [32]byte
+	copy(key[:], rewardEvent.ValidatorPubKey)
+	ID := uint8(len(store.pubKeys))
+	store.pubKeys[ID] = key
+	return ID
 }
 
 func getKeyForHeight(height uint64) []byte {
