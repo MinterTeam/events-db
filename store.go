@@ -11,39 +11,62 @@ import (
 )
 
 type eventsStore struct {
+	cdc *amino.Codec
 	sync.RWMutex
-	db      db.DB
-	pending pendingEvents
-	pubKeys map[uint8][32]byte
+	db       db.DB
+	pending  pendingEvents
+	pubIDKey map[uint16][32]byte
+	pubKeyID map[[32]byte]uint16
 }
 
 type pendingEvents struct {
 	sync.Mutex
-	height uint64
+	height uint32
 	items  events.Events
 }
 
 func NewEventsStore() eventsdb.IEventsDB {
-	return &eventsStore{db: db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data"))}
+	codec := amino.NewCodec()
+	codec.RegisterInterface((*events.Event)(nil), nil)
+	codec.RegisterConcrete(reward{},
+		"reward", nil)
+	codec.RegisterConcrete(slash{},
+		"slash", nil)
+	codec.RegisterConcrete(unbond{},
+		"unbond", nil)
+	codec.RegisterConcrete(events.CoinLiquidationEvent{},
+		"minter/CoinLiquidationEvent", nil)
+
+	return &eventsStore{
+		db:  db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data")),
+		cdc: codec,
+	}
+}
+
+func (store *eventsStore) setPubKey(id uint16, key [32]byte) {
+	store.pubIDKey[id] = key
+	store.pubKeyID[key] = id
 }
 
 func (store *eventsStore) AddEvent(height uint64, event events.Event) {
 	store.pending.Lock()
 	defer store.pending.Unlock()
-	if store.pending.height != height {
+	if store.pending.height != uint32(height) {
 		store.pending.items = events.Events{}
 	}
 	store.pending.items = append(store.pending.items, event)
-	store.pending.height = height
+	store.pending.height = uint32(height)
 }
 
 func (store *eventsStore) LoadEvents(height uint64) events.Events {
 	store.Lock()
-	if len(store.pubKeys) == 0 {
+	if len(store.pubIDKey) == 0 {
 		store.loadKeys()
 	}
 	store.Unlock()
 
+	//todo: work in progress
+	return nil
 }
 
 func (store *eventsStore) FlushEvents() error {
@@ -54,14 +77,14 @@ func (store *eventsStore) FlushEvents() error {
 		data = append(data, store.convert(item))
 	}
 
-	bytes, err := amino.MarshalBinaryBare(data)
+	bytes, err := store.cdc.MarshalBinaryBare(data)
 	if err != nil {
 		return err
 	}
 
 	store.Lock()
 	defer store.Unlock()
-	store.db.Set(uint2byte(store.pending.height), bytes)
+	store.db.Set(uint32ToBytes(store.pending.height), bytes)
 	return nil
 }
 
@@ -96,37 +119,39 @@ func (store *eventsStore) convertSlash(slashEvent *events.SlashEvent) interface{
 const validatorIdsKeyPrefix = "validator"
 const validatorsCountKey = "validators"
 
-func (store *eventsStore) Key(validatorPubKey []byte) uint8 {
-	{
-		strKey := string(validatorPubKey)
-		for id, v := range store.pubKeys {
-			if string(v[:]) == strKey {
-				return id
-			}
-		}
-	}
+func (store *eventsStore) Key(validatorPubKey []byte) uint16 {
 	var key [32]byte
 	copy(key[:], validatorPubKey)
-	id := uint8(len(store.pubKeys))
-	store.pubKeys[id] = key
 
-	store.db.Set(append([]byte(validatorIdsKeyPrefix), uint2byte(uint64(id))...), key[:])
-	store.db.Set([]byte(validatorsCountKey), uint2byte(uint64(len(store.pubKeys))))
+	if id, ok := store.pubKeyID[key]; ok {
+		return id
+	}
+
+	id := uint16(len(store.pubIDKey))
+	store.setPubKey(id, key)
+
+	store.db.Set(append([]byte(validatorIdsKeyPrefix), uint16ToBytes(id)...), key[:])
+	store.db.Set([]byte(validatorsCountKey), uint32ToBytes(uint32(len(store.pubIDKey))))
 	return id
 }
 
 func (store *eventsStore) loadKeys() {
-	count := store.db.Get([]byte(validatorsCountKey))
-	for i := uint64(0); i < binary.BigEndian.Uint64(count); i++ {
-		validatorPubKey := store.db.Get(append([]byte(validatorIdsKeyPrefix), uint2byte(i)...))
+	for id := uint16(0); id < binary.BigEndian.Uint16(store.db.Get([]byte(validatorsCountKey))); id++ {
+		validatorPubKey := store.db.Get(append([]byte(validatorIdsKeyPrefix), uint16ToBytes(id)...))
 		var key [32]byte
 		copy(key[:], validatorPubKey)
-		store.pubKeys[uint8(i)] = key
+		store.setPubKey(id, key)
 	}
 }
 
-func uint2byte(height uint64) []byte {
-	var h = make([]byte, 8)
-	binary.BigEndian.PutUint64(h, height)
+func uint32ToBytes(height uint32) []byte {
+	var h = make([]byte, 4)
+	binary.BigEndian.PutUint32(h, height)
+	return h
+}
+
+func uint16ToBytes(height uint16) []byte {
+	var h = make([]byte, 2)
+	binary.BigEndian.PutUint16(h, height)
 	return h
 }
