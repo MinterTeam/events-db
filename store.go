@@ -3,12 +3,17 @@ package compact
 import (
 	"encoding/binary"
 	"github.com/MinterTeam/go-amino"
-	"github.com/MinterTeam/minter-go-node/eventsdb"
 	"github.com/MinterTeam/minter-go-node/eventsdb/events"
 	"github.com/tendermint/tm-db"
 	"path/filepath"
 	"sync"
 )
+
+type IEventsDB interface {
+	AddEvent(height uint32, event events.Event)
+	LoadEvents(height uint32) events.Events
+	CommitEvents() error
+}
 
 type eventsStore struct {
 	cdc *amino.Codec
@@ -27,7 +32,7 @@ type pendingEvents struct {
 	items  events.Events
 }
 
-func NewEventsStore() eventsdb.IEventsDB {
+func NewEventsStore() IEventsDB {
 	codec := amino.NewCodec()
 	codec.RegisterInterface((*interface{})(nil), nil)
 	codec.RegisterConcrete(reward{}, "reward", nil)
@@ -59,20 +64,20 @@ func (store *eventsStore) cacheAddress(id uint32, address [20]byte) {
 	store.addressID[address] = id
 }
 
-func (store *eventsStore) AddEvent(height uint64, event events.Event) {
+func (store *eventsStore) AddEvent(height uint32, event events.Event) {
 	store.pending.Lock()
 	defer store.pending.Unlock()
-	if store.pending.height != uint32(height) {
+	if store.pending.height != height {
 		store.pending.items = events.Events{}
 	}
 	store.pending.items = append(store.pending.items, event)
-	store.pending.height = uint32(height)
+	store.pending.height = height
 }
 
-func (store *eventsStore) LoadEvents(height uint64) events.Events {
+func (store *eventsStore) LoadEvents(height uint32) events.Events {
 	store.loadCache()
 
-	bytes := store.db.Get(uint32ToBytes(uint32(height)))
+	bytes := store.db.Get(uint32ToBytes(height))
 
 	if len(bytes) == 0 {
 		return events.Events{}
@@ -92,7 +97,7 @@ func (store *eventsStore) LoadEvents(height uint64) events.Events {
 	return resultEvents
 }
 
-func (store *eventsStore) FlushEvents() error {
+func (store *eventsStore) CommitEvents() error {
 	store.loadCache()
 
 	store.pending.Lock()
