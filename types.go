@@ -18,9 +18,9 @@ func rewardConvert(event *events.RewardEvent, pubKeyID uint16, addressID uint32)
 	return result
 }
 
-func compileReward(item *reward, pubKey [32]byte, address [20]byte) interface{} {
+func compileReward(item *reward, pubKey string, address [20]byte) interface{} {
 	event := new(events.RewardEvent)
-	copy(event.ValidatorPubKey[:], pubKey[:])
+	event.ValidatorPubKey = []byte(pubKey)
 	copy(event.Address[:], address[:])
 	event.Role = events.Role(item.Role)
 	event.Amount = item.Amount
@@ -43,9 +43,9 @@ func convertSlash(event *events.SlashEvent, pubKeyID uint16, addressID uint32) i
 	return result
 }
 
-func compileSlash(item *slash, pubKey [32]byte, address [20]byte) interface{} {
+func compileSlash(item *slash, pubKey string, address [20]byte) interface{} {
 	event := new(events.SlashEvent)
-	copy(event.ValidatorPubKey[:], pubKey[:])
+	event.ValidatorPubKey = []byte(pubKey)
 	copy(event.Address[:], address[:])
 	copy(event.Coin[:], item.Coin[:])
 	event.Amount = item.Amount
@@ -68,9 +68,9 @@ func convertUnbound(event *events.UnbondEvent, pubKeyID uint16, addressID uint32
 	return result
 }
 
-func compileUnbond(item *unbond, pubKey [32]byte, address [20]byte) interface{} {
+func compileUnbond(item *unbond, pubKey string, address [20]byte) interface{} {
 	event := new(events.UnbondEvent)
-	copy(event.ValidatorPubKey[:], pubKey[:])
+	event.ValidatorPubKey = []byte(pubKey)
 	copy(event.Address[:], address[:])
 	copy(event.Coin[:], item.Coin[:])
 	event.Amount = item.Amount

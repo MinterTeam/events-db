@@ -15,8 +15,8 @@ type eventsStore struct {
 	sync.RWMutex
 	db        db.DB
 	pending   pendingEvents
-	idPubKey  map[uint16][32]byte
-	pubKeyID  map[[32]byte]uint16
+	idPubKey  map[uint16]string
+	pubKeyID  map[string]uint16
 	idAddress map[uint32][20]byte
 	addressID map[[20]byte]uint32
 }
@@ -29,23 +29,27 @@ type pendingEvents struct {
 
 func NewEventsStore() eventsdb.IEventsDB {
 	codec := amino.NewCodec()
-	codec.RegisterInterface((*events.Event)(nil), nil)
-	codec.RegisterConcrete(reward{},
-		"reward", nil)
-	codec.RegisterConcrete(slash{},
-		"slash", nil)
-	codec.RegisterConcrete(unbond{},
-		"unbond", nil)
-	codec.RegisterConcrete(events.CoinLiquidationEvent{},
-		"minter/CoinLiquidationEvent", nil)
+	codec.RegisterInterface((*interface{})(nil), nil)
+	codec.RegisterConcrete(reward{}, "reward", nil)
+	codec.RegisterConcrete(slash{}, "slash", nil)
+	codec.RegisterConcrete(unbond{}, "unbond", nil)
+	codec.RegisterConcrete(slash{}, "slash", nil)
+	codec.RegisterConcrete(unbond{}, "unbond", nil)
+	codec.RegisterConcrete(events.CoinLiquidationEvent{}, "minter/CoinLiquidationEvent", nil)
 
 	return &eventsStore{
-		db:  db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data")),
-		cdc: codec,
+		cdc:       codec,
+		RWMutex:   sync.RWMutex{},
+		db:        db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data")),
+		pending:   pendingEvents{},
+		idPubKey:  make(map[uint16]string),
+		pubKeyID:  make(map[string]uint16),
+		idAddress: make(map[uint32][20]byte),
+		addressID: make(map[[20]byte]uint32),
 	}
 }
 
-func (store *eventsStore) cachePubKey(id uint16, key [32]byte) {
+func (store *eventsStore) cachePubKey(id uint16, key string) {
 	store.idPubKey[id] = key
 	store.pubKeyID[key] = id
 }
@@ -121,12 +125,12 @@ func (store *eventsStore) loadCache() {
 func (store *eventsStore) convert(event events.Event) interface{} {
 	var res interface{}
 	switch event.(type) {
-	case *events.RewardEvent:
-		res = store.convertReward(event.(*events.RewardEvent))
-	case *events.UnbondEvent:
-		res = store.convertUnbound(event.(*events.UnbondEvent))
-	case *events.SlashEvent:
-		res = store.convertSlash(event.(*events.SlashEvent))
+	case events.RewardEvent:
+		res = store.convertReward(event.(events.RewardEvent))
+	case events.UnbondEvent:
+		res = store.convertUnbound(event.(events.UnbondEvent))
+	case events.SlashEvent:
+		res = store.convertSlash(event.(events.SlashEvent))
 	//case *events.CoinLiquidationEvent:
 	default:
 		res = event
@@ -134,16 +138,16 @@ func (store *eventsStore) convert(event events.Event) interface{} {
 	return res
 }
 
-func (store *eventsStore) convertReward(rewardEvent *events.RewardEvent) interface{} {
-	return rewardConvert(rewardEvent, store.savePubKey(rewardEvent.ValidatorPubKey[:]), store.saveAddress(rewardEvent.Address))
+func (store *eventsStore) convertReward(rewardEvent events.RewardEvent) interface{} {
+	return rewardConvert(&rewardEvent, store.savePubKey(rewardEvent.ValidatorPubKey), store.saveAddress(rewardEvent.Address))
 }
 
-func (store *eventsStore) convertUnbound(unbondEvent *events.UnbondEvent) interface{} {
-	return convertUnbound(unbondEvent, store.savePubKey(unbondEvent.ValidatorPubKey[:]), store.saveAddress(unbondEvent.Address))
+func (store *eventsStore) convertUnbound(unbondEvent events.UnbondEvent) interface{} {
+	return convertUnbound(&unbondEvent, store.savePubKey(unbondEvent.ValidatorPubKey), store.saveAddress(unbondEvent.Address))
 }
 
-func (store *eventsStore) convertSlash(slashEvent *events.SlashEvent) interface{} {
-	return convertSlash(slashEvent, store.savePubKey(slashEvent.ValidatorPubKey[:]), store.saveAddress(slashEvent.Address))
+func (store *eventsStore) convertSlash(slashEvent events.SlashEvent) interface{} {
+	return convertSlash(&slashEvent, store.savePubKey(slashEvent.ValidatorPubKey), store.saveAddress(slashEvent.Address))
 }
 
 const pubKeyPrefix = "pubKey"
@@ -157,18 +161,17 @@ func (store *eventsStore) saveAddress(address [20]byte) uint32 {
 		return id
 	}
 
-	id := uint32(len(store.idPubKey))
+	id := uint32(len(store.addressID))
 	store.cacheAddress(id, address)
 
 	store.db.Set(append([]byte(addressPrefix), uint32ToBytes(id)...), address[:])
-	store.db.Set([]byte(addressesCountKey), uint32ToBytes(uint32(len(store.idPubKey))))
+	store.db.Set([]byte(addressesCountKey), uint32ToBytes(uint32(len(store.addressID))))
 	return id
 }
 
 func (store *eventsStore) savePubKey(validatorPubKey []byte) uint16 {
-	var key [32]byte
-	copy(key[:], validatorPubKey)
 
+	key := string(validatorPubKey)
 	if id, ok := store.pubKeyID[key]; ok {
 		return id
 	}
@@ -176,38 +179,40 @@ func (store *eventsStore) savePubKey(validatorPubKey []byte) uint16 {
 	id := uint16(len(store.idPubKey))
 	store.cachePubKey(id, key)
 
-	store.db.Set(append([]byte(pubKeyPrefix), uint16ToBytes(id)...), key[:])
-	store.db.Set([]byte(pubKeysCountKey), uint32ToBytes(uint32(len(store.idPubKey))))
+	store.db.Set(append([]byte(pubKeyPrefix), uint16ToBytes(id)...), validatorPubKey)
+	store.db.Set([]byte(pubKeysCountKey), uint16ToBytes(uint16(len(store.idPubKey))))
 	return id
 }
 
 func (store *eventsStore) loadPubKeys() {
-	for id := uint16(0); id < binary.BigEndian.Uint16(store.db.Get([]byte(pubKeysCountKey))); id++ {
-		pubKey := store.db.Get(append([]byte(pubKeyPrefix), uint16ToBytes(id)...))
-		var key [32]byte
-		copy(key[:], pubKey)
-		store.cachePubKey(id, key)
+	if count := store.db.Get([]byte(pubKeysCountKey)); len(count) > 0 {
+		for id := uint16(0); id < binary.BigEndian.Uint16(count); id++ {
+			pubKey := store.db.Get(append([]byte(pubKeyPrefix), uint16ToBytes(id)...))
+			store.cachePubKey(id, string(pubKey))
+		}
 	}
 }
 
 func (store *eventsStore) loadAddresses() {
-	for id := uint32(0); id < binary.BigEndian.Uint32(store.db.Get([]byte(addressesCountKey))); id++ {
-		address := store.db.Get(append([]byte(addressPrefix), uint32ToBytes(id)...))
-		var key [20]byte
-		copy(key[:], address)
-		store.cacheAddress(id, key)
+	if count := store.db.Get([]byte(addressesCountKey)); len(count) > 0 {
+		for id := uint32(0); id < binary.BigEndian.Uint32(count); id++ {
+			address := store.db.Get(append([]byte(addressPrefix), uint32ToBytes(id)...))
+			var key [20]byte
+			copy(key[:], address)
+			store.cacheAddress(id, key)
+		}
 	}
 }
 
 func (store *eventsStore) compile(event interface{}) events.Event {
 	var res interface{}
 	switch event.(type) {
-	case *reward:
-		res = store.compileReward(event.(*reward))
-	case *unbond:
-		res = store.compileUnbond(event.(*unbond))
-	case *slash:
-		res = store.compileSlash(event.(*slash))
+	case reward:
+		res = store.compileReward(event.(reward))
+	case unbond:
+		res = store.compileUnbond(event.(unbond))
+	case slash:
+		res = store.compileSlash(event.(slash))
 	//case *events.CoinLiquidationEvent:
 	default:
 		res = event
@@ -215,16 +220,16 @@ func (store *eventsStore) compile(event interface{}) events.Event {
 	return res
 }
 
-func (store *eventsStore) compileReward(item *reward) interface{} {
-	return compileReward(item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
+func (store *eventsStore) compileReward(item reward) interface{} {
+	return compileReward(&item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
 }
 
-func (store *eventsStore) compileSlash(item *slash) interface{} {
-	return compileSlash(item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
+func (store *eventsStore) compileSlash(item slash) interface{} {
+	return compileSlash(&item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
 }
 
-func (store *eventsStore) compileUnbond(item *unbond) interface{} {
-	return compileUnbond(item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
+func (store *eventsStore) compileUnbond(item unbond) interface{} {
+	return compileUnbond(&item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
 }
 
 func uint32ToBytes(height uint32) []byte {
