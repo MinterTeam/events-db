@@ -10,8 +10,6 @@ import (
 	"sync"
 )
 
-var cdc = amino.NewCodec()
-
 type eventsStore struct {
 	sync.RWMutex
 	db      db.DB
@@ -56,7 +54,7 @@ func (store *eventsStore) FlushEvents() error {
 		data = append(data, store.convert(item))
 	}
 
-	bytes, err := cdc.MarshalBinaryBare(data)
+	bytes, err := amino.MarshalBinaryBare(data)
 	if err != nil {
 		return err
 	}
