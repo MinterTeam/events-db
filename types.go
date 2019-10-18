@@ -9,13 +9,22 @@ type reward struct {
 	PubKeyID  uint16
 }
 
-func rewardConvert(rewardEvent *events.RewardEvent, pubKeyID uint16, addressID uint32) interface{} {
-	reward := new(reward)
-	reward.AddressID = addressID
-	reward.Role = byte(rewardEvent.Role)
-	reward.Amount = rewardEvent.Amount
-	reward.PubKeyID = pubKeyID
-	return reward
+func rewardConvert(event *events.RewardEvent, pubKeyID uint16, addressID uint32) interface{} {
+	result := new(reward)
+	result.AddressID = addressID
+	result.Role = byte(event.Role)
+	result.Amount = event.Amount
+	result.PubKeyID = pubKeyID
+	return result
+}
+
+func compileReward(item *reward, pubKey [32]byte, address [20]byte) interface{} {
+	event := new(events.RewardEvent)
+	copy(event.ValidatorPubKey[:], pubKey[:])
+	copy(event.Address[:], address[:])
+	event.Role = events.Role(item.Role)
+	event.Amount = item.Amount
+	return event
 }
 
 type slash struct {
@@ -25,13 +34,22 @@ type slash struct {
 	PubKeyID  uint16
 }
 
-func convertSlash(rewardEvent *events.SlashEvent, pubKeyID uint16, addressID uint32) interface{} {
-	reward := new(slash)
-	reward.AddressID = addressID
-	copy(reward.Coin[:], rewardEvent.Coin[:])
-	reward.Amount = rewardEvent.Amount
-	reward.PubKeyID = pubKeyID
-	return reward
+func convertSlash(event *events.SlashEvent, pubKeyID uint16, addressID uint32) interface{} {
+	result := new(slash)
+	result.AddressID = addressID
+	copy(result.Coin[:], event.Coin[:])
+	result.Amount = event.Amount
+	result.PubKeyID = pubKeyID
+	return result
+}
+
+func compileSlash(item *slash, pubKey [32]byte, address [20]byte) interface{} {
+	event := new(events.SlashEvent)
+	copy(event.ValidatorPubKey[:], pubKey[:])
+	copy(event.Address[:], address[:])
+	copy(event.Coin[:], item.Coin[:])
+	event.Amount = item.Amount
+	return event
 }
 
 type unbond struct {
@@ -41,11 +59,20 @@ type unbond struct {
 	PubKeyID  uint16
 }
 
-func convertUnbound(rewardEvent *events.UnbondEvent, pubKeyID uint16, addressID uint32) interface{} {
-	reward := new(unbond)
-	reward.AddressID = addressID
-	copy(reward.Coin[:], rewardEvent.Coin[:])
-	reward.Amount = rewardEvent.Amount
-	reward.PubKeyID = pubKeyID
-	return reward
+func convertUnbound(event *events.UnbondEvent, pubKeyID uint16, addressID uint32) interface{} {
+	result := new(unbond)
+	result.AddressID = addressID
+	copy(result.Coin[:], event.Coin[:])
+	result.Amount = event.Amount
+	result.PubKeyID = pubKeyID
+	return result
+}
+
+func compileUnbond(item *unbond, pubKey [32]byte, address [20]byte) interface{} {
+	event := new(events.UnbondEvent)
+	copy(event.ValidatorPubKey[:], pubKey[:])
+	copy(event.Address[:], address[:])
+	copy(event.Coin[:], item.Coin[:])
+	event.Amount = item.Amount
+	return event
 }

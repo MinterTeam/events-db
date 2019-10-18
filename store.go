@@ -68,8 +68,24 @@ func (store *eventsStore) AddEvent(height uint64, event events.Event) {
 func (store *eventsStore) LoadEvents(height uint64) events.Events {
 	store.loadCache()
 
-	//todo: work in progress
-	return nil
+	bytes := store.db.Get(uint32ToBytes(uint32(height)))
+
+	if len(bytes) == 0 {
+		return events.Events{}
+	}
+
+	var items []interface{}
+	err := store.cdc.UnmarshalBinaryBare(bytes, &items)
+	if err != nil {
+		panic(err)
+	}
+
+	resultEvents := make(events.Events, 0, len(items))
+	for _, event := range items {
+		resultEvents = append(resultEvents, store.compile(event))
+	}
+
+	return resultEvents
 }
 
 func (store *eventsStore) FlushEvents() error {
@@ -181,6 +197,34 @@ func (store *eventsStore) loadAddresses() {
 		copy(key[:], address)
 		store.cacheAddress(id, key)
 	}
+}
+
+func (store *eventsStore) compile(event interface{}) events.Event {
+	var res interface{}
+	switch event.(type) {
+	case *reward:
+		res = store.compileReward(event.(*reward))
+	case *unbond:
+		res = store.compileUnbond(event.(*unbond))
+	case *slash:
+		res = store.compileSlash(event.(*slash))
+	//case *events.CoinLiquidationEvent:
+	default:
+		res = event
+	}
+	return res
+}
+
+func (store *eventsStore) compileReward(item *reward) interface{} {
+	return compileReward(item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
+}
+
+func (store *eventsStore) compileSlash(item *slash) interface{} {
+	return compileSlash(item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
+}
+
+func (store *eventsStore) compileUnbond(item *unbond) interface{} {
+	return compileUnbond(item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
 }
 
 func uint32ToBytes(height uint32) []byte {
