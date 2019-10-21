@@ -1,6 +1,35 @@
 package compact_db
 
-import "github.com/MinterTeam/minter-go-node/eventsdb/events"
+import (
+	"github.com/MinterTeam/minter-go-node/core/types"
+)
+
+type Role byte
+
+func (r Role) String() string {
+	switch r {
+	case RoleValidator:
+		return "Validator"
+	case RoleDelegator:
+		return "Delegator"
+	case RoleDAO:
+		return "DAO"
+	case RoleDevelopers:
+		return "Developers"
+	}
+
+	return "Undefined"
+}
+
+const (
+	RoleValidator Role = iota
+	RoleDelegator
+	RoleDAO
+	RoleDevelopers
+)
+
+type Event interface{}
+type Events []Event
 
 type reward struct {
 	Role      byte
@@ -9,7 +38,14 @@ type reward struct {
 	PubKeyID  uint16
 }
 
-func rewardConvert(event *events.RewardEvent, pubKeyID uint16, addressID uint32) interface{} {
+type RewardEvent struct {
+	Role            Role
+	Address         types.Address
+	Amount          []byte
+	ValidatorPubKey types.Pubkey
+}
+
+func rewardConvert(event *RewardEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(reward)
 	result.AddressID = addressID
 	result.Role = byte(event.Role)
@@ -19,10 +55,10 @@ func rewardConvert(event *events.RewardEvent, pubKeyID uint16, addressID uint32)
 }
 
 func compileReward(item *reward, pubKey string, address [20]byte) interface{} {
-	event := new(events.RewardEvent)
+	event := new(RewardEvent)
 	event.ValidatorPubKey = []byte(pubKey)
 	copy(event.Address[:], address[:])
-	event.Role = events.Role(item.Role)
+	event.Role = Role(item.Role)
 	event.Amount = item.Amount
 	return event
 }
@@ -34,7 +70,14 @@ type slash struct {
 	PubKeyID  uint16
 }
 
-func convertSlash(event *events.SlashEvent, pubKeyID uint16, addressID uint32) interface{} {
+type SlashEvent struct {
+	Address         types.Address
+	Amount          []byte
+	Coin            types.CoinSymbol
+	ValidatorPubKey types.Pubkey
+}
+
+func convertSlash(event *SlashEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(slash)
 	result.AddressID = addressID
 	copy(result.Coin[:], event.Coin[:])
@@ -44,7 +87,7 @@ func convertSlash(event *events.SlashEvent, pubKeyID uint16, addressID uint32) i
 }
 
 func compileSlash(item *slash, pubKey string, address [20]byte) interface{} {
-	event := new(events.SlashEvent)
+	event := new(SlashEvent)
 	event.ValidatorPubKey = []byte(pubKey)
 	copy(event.Address[:], address[:])
 	copy(event.Coin[:], item.Coin[:])
@@ -59,7 +102,14 @@ type unbond struct {
 	PubKeyID  uint16
 }
 
-func convertUnbound(event *events.UnbondEvent, pubKeyID uint16, addressID uint32) interface{} {
+type UnbondEvent struct {
+	Address         types.Address
+	Amount          []byte
+	Coin            types.CoinSymbol
+	ValidatorPubKey types.Pubkey
+}
+
+func convertUnbound(event *UnbondEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(unbond)
 	result.AddressID = addressID
 	copy(result.Coin[:], event.Coin[:])
@@ -69,10 +119,14 @@ func convertUnbound(event *events.UnbondEvent, pubKeyID uint16, addressID uint32
 }
 
 func compileUnbond(item *unbond, pubKey string, address [20]byte) interface{} {
-	event := new(events.UnbondEvent)
+	event := new(UnbondEvent)
 	event.ValidatorPubKey = []byte(pubKey)
 	copy(event.Address[:], address[:])
 	copy(event.Coin[:], item.Coin[:])
 	event.Amount = item.Amount
 	return event
+}
+
+type CoinLiquidationEvent struct {
+	Coin types.CoinSymbol
 }

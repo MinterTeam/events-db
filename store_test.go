@@ -2,37 +2,19 @@ package compact_db
 
 import (
 	"encoding/hex"
-	"github.com/MinterTeam/go-amino"
-	"github.com/MinterTeam/minter-go-node/eventsdb/events"
 	db "github.com/tendermint/tm-db"
 	"math/big"
 	"path/filepath"
-	"sync"
 	"testing"
 )
 
 func TestIEventsDB(t *testing.T) {
-	codec := amino.NewCodec()
-	codec.RegisterInterface((*interface{})(nil), nil)
-	codec.RegisterConcrete(reward{}, "reward", nil)
-	codec.RegisterConcrete(slash{}, "slash", nil)
-	codec.RegisterConcrete(unbond{}, "unbond", nil)
-	codec.RegisterConcrete(events.CoinLiquidationEvent{}, "minter/CoinLiquidationEvent", nil)
+	store := NewEventsStore(db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data_test")))
 
-	eventsDB := IEventsDB(&eventsStore{
-		cdc:       codec,
-		RWMutex:   sync.RWMutex{},
-		db:        db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data_test")),
-		pending:   pendingEvents{},
-		idPubKey:  make(map[uint16]string),
-		pubKeyID:  make(map[string]uint16),
-		idAddress: make(map[uint32][20]byte),
-		addressID: make(map[[20]byte]uint32),
-	})
 	{
 		amount, _ := big.NewInt(0).SetString("111497225000000000000", 10)
-		event := events.RewardEvent{
-			Role:            events.RoleDevelopers,
+		event := RewardEvent{
+			Role:            RoleDevelopers,
 			Address:         [20]byte{},
 			Amount:          amount.Bytes(),
 			ValidatorPubKey: []byte{},
@@ -47,12 +29,12 @@ func TestIEventsDB(t *testing.T) {
 			t.Fatal(err)
 		}
 		event.ValidatorPubKey = bytesPubKey
-		eventsDB.AddEvent(12, event)
+		store.AddEvent(12, event)
 	}
 	{
 		amount, _ := big.NewInt(0).SetString("891977800000000000000", 10)
-		event := events.RewardEvent{
-			Role:            events.RoleValidator,
+		event := RewardEvent{
+			Role:            RoleValidator,
 			Address:         [20]byte{},
 			Amount:          amount.Bytes(),
 			ValidatorPubKey: []byte{},
@@ -67,17 +49,17 @@ func TestIEventsDB(t *testing.T) {
 			t.Fatal(err)
 		}
 		event.ValidatorPubKey = bytesPubKey
-		eventsDB.AddEvent(12, event)
+		store.AddEvent(12, event)
 	}
-	err := eventsDB.CommitEvents()
+	err := store.CommitEvents()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	loadEvents := eventsDB.LoadEvents(12)
+	loadEvents := store.LoadEvents(12)
 	for _, v := range loadEvents {
 		t.Logf("%+v", v)
-		t.Logf("%+v", big.NewInt(0).SetBytes(v.(*events.RewardEvent).Amount).String())
-		t.Logf("%+v", v.(*events.RewardEvent).Address.String())
+		t.Logf("%+v", big.NewInt(0).SetBytes(v.(*RewardEvent).Amount).String())
+		t.Logf("%+v", v.(*RewardEvent).Address.String())
 	}
 }

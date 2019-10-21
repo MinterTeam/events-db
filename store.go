@@ -3,15 +3,13 @@ package compact_db
 import (
 	"encoding/binary"
 	"github.com/MinterTeam/go-amino"
-	"github.com/MinterTeam/minter-go-node/eventsdb/events"
 	"github.com/tendermint/tm-db"
-	"path/filepath"
 	"sync"
 )
 
 type IEventsDB interface {
-	AddEvent(height uint32, event events.Event)
-	LoadEvents(height uint32) events.Events
+	AddEvent(height uint32, event Event)
+	LoadEvents(height uint32) Events
 	CommitEvents() error
 }
 
@@ -29,23 +27,21 @@ type eventsStore struct {
 type pendingEvents struct {
 	sync.Mutex
 	height uint32
-	items  events.Events
+	items  Events
 }
 
-func NewEventsStore() IEventsDB {
+func NewEventsStore(db db.DB) IEventsDB {
 	codec := amino.NewCodec()
 	codec.RegisterInterface((*interface{})(nil), nil)
 	codec.RegisterConcrete(reward{}, "reward", nil)
 	codec.RegisterConcrete(slash{}, "slash", nil)
 	codec.RegisterConcrete(unbond{}, "unbond", nil)
-	codec.RegisterConcrete(slash{}, "slash", nil)
-	codec.RegisterConcrete(unbond{}, "unbond", nil)
-	codec.RegisterConcrete(events.CoinLiquidationEvent{}, "minter/CoinLiquidationEvent", nil)
+	codec.RegisterConcrete(CoinLiquidationEvent{}, "CoinLiquidationEvent", nil)
 
 	return &eventsStore{
 		cdc:       codec,
 		RWMutex:   sync.RWMutex{},
-		db:        db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data")),
+		db:        db,
 		pending:   pendingEvents{},
 		idPubKey:  make(map[uint16]string),
 		pubKeyID:  make(map[string]uint16),
@@ -64,23 +60,23 @@ func (store *eventsStore) cacheAddress(id uint32, address [20]byte) {
 	store.addressID[address] = id
 }
 
-func (store *eventsStore) AddEvent(height uint32, event events.Event) {
+func (store *eventsStore) AddEvent(height uint32, event Event) {
 	store.pending.Lock()
 	defer store.pending.Unlock()
 	if store.pending.height != height {
-		store.pending.items = events.Events{}
+		store.pending.items = Events{}
 	}
 	store.pending.items = append(store.pending.items, event)
 	store.pending.height = height
 }
 
-func (store *eventsStore) LoadEvents(height uint32) events.Events {
+func (store *eventsStore) LoadEvents(height uint32) Events {
 	store.loadCache()
 
 	bytes := store.db.Get(uint32ToBytes(height))
 
 	if len(bytes) == 0 {
-		return events.Events{}
+		return Events{}
 	}
 
 	var items []interface{}
@@ -89,7 +85,7 @@ func (store *eventsStore) LoadEvents(height uint32) events.Events {
 		panic(err)
 	}
 
-	resultEvents := make(events.Events, 0, len(items))
+	resultEvents := make(Events, 0, len(items))
 	for _, event := range items {
 		resultEvents = append(resultEvents, store.compile(event))
 	}
@@ -127,31 +123,31 @@ func (store *eventsStore) loadCache() {
 	store.Unlock()
 }
 
-func (store *eventsStore) convert(event events.Event) interface{} {
+func (store *eventsStore) convert(event Event) interface{} {
 	var res interface{}
 	switch event.(type) {
-	case events.RewardEvent:
-		res = store.convertReward(event.(events.RewardEvent))
-	case events.UnbondEvent:
-		res = store.convertUnbound(event.(events.UnbondEvent))
-	case events.SlashEvent:
-		res = store.convertSlash(event.(events.SlashEvent))
-	//case *events.CoinLiquidationEvent:
+	case RewardEvent:
+		res = store.convertReward(event.(RewardEvent))
+	case UnbondEvent:
+		res = store.convertUnbound(event.(UnbondEvent))
+	case SlashEvent:
+		res = store.convertSlash(event.(SlashEvent))
+	//case *CoinLiquidationEvent:
 	default:
 		res = event
 	}
 	return res
 }
 
-func (store *eventsStore) convertReward(rewardEvent events.RewardEvent) interface{} {
+func (store *eventsStore) convertReward(rewardEvent RewardEvent) interface{} {
 	return rewardConvert(&rewardEvent, store.savePubKey(rewardEvent.ValidatorPubKey), store.saveAddress(rewardEvent.Address))
 }
 
-func (store *eventsStore) convertUnbound(unbondEvent events.UnbondEvent) interface{} {
+func (store *eventsStore) convertUnbound(unbondEvent UnbondEvent) interface{} {
 	return convertUnbound(&unbondEvent, store.savePubKey(unbondEvent.ValidatorPubKey), store.saveAddress(unbondEvent.Address))
 }
 
-func (store *eventsStore) convertSlash(slashEvent events.SlashEvent) interface{} {
+func (store *eventsStore) convertSlash(slashEvent SlashEvent) interface{} {
 	return convertSlash(&slashEvent, store.savePubKey(slashEvent.ValidatorPubKey), store.saveAddress(slashEvent.Address))
 }
 
@@ -209,7 +205,7 @@ func (store *eventsStore) loadAddresses() {
 	}
 }
 
-func (store *eventsStore) compile(event interface{}) events.Event {
+func (store *eventsStore) compile(event interface{}) Event {
 	var res interface{}
 	switch event.(type) {
 	case reward:
@@ -218,7 +214,7 @@ func (store *eventsStore) compile(event interface{}) events.Event {
 		res = store.compileUnbond(event.(unbond))
 	case slash:
 		res = store.compileSlash(event.(slash))
-	//case *events.CoinLiquidationEvent:
+	//case CoinLiquidationEvent:
 	default:
 		res = event
 	}
