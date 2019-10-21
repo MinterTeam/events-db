@@ -1,10 +1,33 @@
 package compact_db
 
 import (
+	"github.com/MinterTeam/go-amino"
 	"github.com/MinterTeam/minter-go-node/core/types"
 )
 
+func RegisterAminoEvents(codec *amino.Codec) {
+	codec.RegisterInterface((*Event)(nil), nil)
+	codec.RegisterConcrete(RewardEvent{},
+		"RewardEvent", nil)
+	codec.RegisterConcrete(SlashEvent{},
+		"SlashEvent", nil)
+	codec.RegisterConcrete(UnbondEvent{},
+		"UnbondEvent", nil)
+	codec.RegisterConcrete(CoinLiquidationEvent{},
+		"CoinLiquidationEvent", nil)
+}
+
+type Event interface{}
+type Events []Event
+
 type Role byte
+
+const (
+	RoleValidator Role = iota
+	RoleDelegator
+	RoleDAO
+	RoleDevelopers
+)
 
 func (r Role) String() string {
 	switch r {
@@ -20,16 +43,6 @@ func (r Role) String() string {
 
 	return "Undefined"
 }
-
-const (
-	RoleValidator Role = iota
-	RoleDelegator
-	RoleDAO
-	RoleDevelopers
-)
-
-type Event interface{}
-type Events []Event
 
 type reward struct {
 	Role      byte
