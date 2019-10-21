@@ -1,4 +1,4 @@
-package compact
+package compact_db
 
 import "github.com/MinterTeam/minter-go-node/eventsdb/events"
 

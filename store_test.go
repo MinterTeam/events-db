@@ -1,4 +1,4 @@
-package compact
+package compact_db
 
 import (
 	"encoding/hex"

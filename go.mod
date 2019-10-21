@@ -1,4 +1,4 @@
-module compact-db
+module github.com/klim0v/compact-db
 
 go 1.13
 
