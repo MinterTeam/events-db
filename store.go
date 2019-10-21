@@ -170,9 +170,9 @@ func (store *eventsStore) saveAddress(address [20]byte) uint32 {
 	return id
 }
 
-func (store *eventsStore) savePubKey(validatorPubKey []byte) uint16 {
+func (store *eventsStore) savePubKey(validatorPubKey [32]byte) uint16 {
 
-	key := string(validatorPubKey)
+	key := string(validatorPubKey[:])
 	if id, ok := store.pubKeyID[key]; ok {
 		return id
 	}
@@ -180,7 +180,7 @@ func (store *eventsStore) savePubKey(validatorPubKey []byte) uint16 {
 	id := uint16(len(store.idPubKey))
 	store.cachePubKey(id, key)
 
-	store.db.Set(append([]byte(pubKeyPrefix), uint16ToBytes(id)...), validatorPubKey)
+	store.db.Set(append([]byte(pubKeyPrefix), uint16ToBytes(id)...), validatorPubKey[:])
 	store.db.Set([]byte(pubKeysCountKey), uint16ToBytes(uint16(len(store.idPubKey))))
 	return id
 }

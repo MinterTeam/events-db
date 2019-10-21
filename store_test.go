@@ -17,18 +17,18 @@ func TestIEventsDB(t *testing.T) {
 			Role:            RoleDevelopers,
 			Address:         [20]byte{},
 			Amount:          amount.Bytes(),
-			ValidatorPubKey: []byte{},
+			ValidatorPubKey: [32]byte{},
 		}
 		bytesAddress, err := hex.DecodeString("Mx04bea23efb744dc93b4fda4c20bf4a21c6e195f1"[2:])
 		if err != nil {
 			t.Fatal(err)
 		}
 		copy(event.Address[:], bytesAddress)
-		bytesPubKey, err := hex.DecodeString("Mp9e13f2f5468dd782b316444fbd66595e13dba7d7bd3efa1becd50b42045f58c6"[2:])
+		hexPubKey, err := hex.DecodeString("Mp9e13f2f5468dd782b316444fbd66595e13dba7d7bd3efa1becd50b42045f58c6"[2:])
 		if err != nil {
 			t.Fatal(err)
 		}
-		event.ValidatorPubKey = bytesPubKey
+		copy(event.ValidatorPubKey[:], hexPubKey)
 		store.AddEvent(12, event)
 	}
 	{
@@ -37,18 +37,18 @@ func TestIEventsDB(t *testing.T) {
 			Role:            RoleValidator,
 			Address:         [20]byte{},
 			Amount:          amount.Bytes(),
-			ValidatorPubKey: []byte{},
+			ValidatorPubKey: [32]byte{},
 		}
 		bytesAddress, err := hex.DecodeString("Mx18467bbb64a8edf890201d526c35957d82be3d95"[2:])
 		if err != nil {
 			t.Fatal(err)
 		}
 		copy(event.Address[:], bytesAddress)
-		bytesPubKey, err := hex.DecodeString("Mp738da41ba6a7b7d69b7294afa158b89c5a1b410cbf0c2443c85c5fe24ad1dd1c"[2:])
+		hexPubKey, err := hex.DecodeString("Mp738da41ba6a7b7d69b7294afa158b89c5a1b410cbf0c2443c85c5fe24ad1dd1c"[2:])
 		if err != nil {
 			t.Fatal(err)
 		}
-		event.ValidatorPubKey = bytesPubKey
+		copy(event.ValidatorPubKey[:], hexPubKey)
 		store.AddEvent(12, event)
 	}
 	err := store.CommitEvents()
