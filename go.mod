@@ -1,4 +1,4 @@
-module github.com/klim0v/compact-db
+module github.com/MinterTeam/events-db
 
 go 1.13
 
