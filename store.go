@@ -36,7 +36,6 @@ func NewEventsStore(db db.DB) IEventsDB {
 	codec.RegisterConcrete(reward{}, "reward", nil)
 	codec.RegisterConcrete(slash{}, "slash", nil)
 	codec.RegisterConcrete(unbond{}, "unbond", nil)
-	codec.RegisterConcrete(CoinLiquidationEvent{}, "CoinLiquidationEvent", nil)
 
 	return &eventsStore{
 		cdc:       codec,
@@ -132,7 +131,6 @@ func (store *eventsStore) convert(event Event) interface{} {
 		res = store.convertUnbound(event.(UnbondEvent))
 	case SlashEvent:
 		res = store.convertSlash(event.(SlashEvent))
-	//case *CoinLiquidationEvent:
 	default:
 		res = event
 	}
@@ -214,7 +212,6 @@ func (store *eventsStore) compile(event interface{}) Event {
 		res = store.compileUnbond(event.(unbond))
 	case slash:
 		res = store.compileSlash(event.(slash))
-	//case CoinLiquidationEvent:
 	default:
 		res = event
 	}

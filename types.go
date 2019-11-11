@@ -13,8 +13,6 @@ func RegisterAminoEvents(codec *amino.Codec) {
 		"SlashEvent", nil)
 	codec.RegisterConcrete(UnbondEvent{},
 		"UnbondEvent", nil)
-	codec.RegisterConcrete(CoinLiquidationEvent{},
-		"CoinLiquidationEvent", nil)
 }
 
 type Event interface{}
@@ -138,8 +136,4 @@ func compileUnbond(item *unbond, pubKey string, address [20]byte) interface{} {
 	copy(event.Coin[:], item.Coin[:])
 	event.Amount = item.Amount
 	return event
-}
-
-type CoinLiquidationEvent struct {
-	Coin types.CoinSymbol
 }
