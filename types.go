@@ -42,6 +42,8 @@ func (r Role) String() string {
 	return "Undefined"
 }
 
+type event interface{}
+
 type reward struct {
 	Role      byte
 	AddressID uint32

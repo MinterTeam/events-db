@@ -32,7 +32,7 @@ type pendingEvents struct {
 
 func NewEventsStore(db db.DB) IEventsDB {
 	codec := amino.NewCodec()
-	codec.RegisterInterface((*interface{})(nil), nil)
+	codec.RegisterInterface((*event)(nil), nil)
 	codec.RegisterConcrete(reward{}, "reward", nil)
 	codec.RegisterConcrete(slash{}, "slash", nil)
 	codec.RegisterConcrete(unbond{}, "unbond", nil)
@@ -78,7 +78,7 @@ func (store *eventsStore) LoadEvents(height uint32) Events {
 		return Events{}
 	}
 
-	var items []interface{}
+	var items []event
 	err := store.cdc.UnmarshalBinaryBare(bytes, &items)
 	if err != nil {
 		panic(err)
@@ -97,7 +97,7 @@ func (store *eventsStore) CommitEvents() error {
 
 	store.pending.Lock()
 	defer store.pending.Unlock()
-	var data []interface{}
+	var data []event
 	for _, item := range store.pending.items {
 		data = append(data, store.convert(item))
 	}
@@ -122,30 +122,30 @@ func (store *eventsStore) loadCache() {
 	store.Unlock()
 }
 
-func (store *eventsStore) convert(event Event) interface{} {
-	var res interface{}
-	switch event.(type) {
+func (store *eventsStore) convert(e Event) event {
+	var res event
+	switch e.(type) {
 	case RewardEvent:
-		res = store.convertReward(event.(RewardEvent))
+		res = store.convertReward(e.(RewardEvent))
 	case UnbondEvent:
-		res = store.convertUnbound(event.(UnbondEvent))
+		res = store.convertUnbound(e.(UnbondEvent))
 	case SlashEvent:
-		res = store.convertSlash(event.(SlashEvent))
+		res = store.convertSlash(e.(SlashEvent))
 	default:
-		res = event
+		res = e
 	}
 	return res
 }
 
-func (store *eventsStore) convertReward(rewardEvent RewardEvent) interface{} {
+func (store *eventsStore) convertReward(rewardEvent RewardEvent) event {
 	return rewardConvert(&rewardEvent, store.savePubKey(rewardEvent.ValidatorPubKey), store.saveAddress(rewardEvent.Address))
 }
 
-func (store *eventsStore) convertUnbound(unbondEvent UnbondEvent) interface{} {
+func (store *eventsStore) convertUnbound(unbondEvent UnbondEvent) event {
 	return convertUnbound(&unbondEvent, store.savePubKey(unbondEvent.ValidatorPubKey), store.saveAddress(unbondEvent.Address))
 }
 
-func (store *eventsStore) convertSlash(slashEvent SlashEvent) interface{} {
+func (store *eventsStore) convertSlash(slashEvent SlashEvent) event {
 	return convertSlash(&slashEvent, store.savePubKey(slashEvent.ValidatorPubKey), store.saveAddress(slashEvent.Address))
 }
 
@@ -203,30 +203,30 @@ func (store *eventsStore) loadAddresses() {
 	}
 }
 
-func (store *eventsStore) compile(event interface{}) Event {
-	var res interface{}
-	switch event.(type) {
+func (store *eventsStore) compile(e event) Event {
+	var res Event
+	switch e.(type) {
 	case reward:
-		res = store.compileReward(event.(reward))
+		res = store.compileReward(e.(reward))
 	case unbond:
-		res = store.compileUnbond(event.(unbond))
+		res = store.compileUnbond(e.(unbond))
 	case slash:
-		res = store.compileSlash(event.(slash))
+		res = store.compileSlash(e.(slash))
 	default:
-		res = event
+		res = e
 	}
 	return res
 }
 
-func (store *eventsStore) compileReward(item reward) interface{} {
+func (store *eventsStore) compileReward(item reward) event {
 	return compileReward(&item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
 }
 
-func (store *eventsStore) compileSlash(item slash) interface{} {
+func (store *eventsStore) compileSlash(item slash) event {
 	return compileSlash(&item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
 }
 
-func (store *eventsStore) compileUnbond(item unbond) interface{} {
+func (store *eventsStore) compileUnbond(item unbond) event {
 	return compileUnbond(&item, store.idPubKey[item.PubKeyID], store.idAddress[item.AddressID])
 }
 
