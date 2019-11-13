@@ -1,8 +1,10 @@
 package events_db
 
 import (
+	"encoding/json"
 	"github.com/MinterTeam/minter-go-node/core/types"
 	"github.com/tendermint/go-amino"
+	"math/big"
 )
 
 func RegisterAminoEvents(codec *amino.Codec) {
@@ -59,6 +61,20 @@ type RewardEvent struct {
 	ValidatorPubKey types.Pubkey
 }
 
+func (r RewardEvent) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Role            string `json:"role"`
+		Address         string `json:"address"`
+		Amount          string `json:"amount"`
+		ValidatorPubKey string `json:"validator_pub_key"`
+	}{
+		Role:            r.Role.String(),
+		Address:         r.Address.String(),
+		Amount:          big.NewInt(0).SetBytes(r.Amount).String(),
+		ValidatorPubKey: r.ValidatorPubKey.String(),
+	})
+}
+
 func rewardConvert(event *RewardEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(reward)
 	result.AddressID = addressID
@@ -91,6 +107,20 @@ type SlashEvent struct {
 	ValidatorPubKey types.Pubkey
 }
 
+func (s SlashEvent) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Address         string `json:"address"`
+		Amount          string `json:"amount"`
+		Coin            string `json:"coin"`
+		ValidatorPubKey string `json:"validator_pub_key"`
+	}{
+		Address:         s.Address.String(),
+		Amount:          big.NewInt(0).SetBytes(s.Amount).String(),
+		Coin:            s.Coin.String(),
+		ValidatorPubKey: s.ValidatorPubKey.String(),
+	})
+}
+
 func convertSlash(event *SlashEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(slash)
 	result.AddressID = addressID
@@ -121,6 +151,20 @@ type UnbondEvent struct {
 	Amount          []byte
 	Coin            types.CoinSymbol
 	ValidatorPubKey types.Pubkey
+}
+
+func (u UnbondEvent) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Address         string `json:"address"`
+		Amount          string `json:"amount"`
+		Coin            string `json:"coin"`
+		ValidatorPubKey string `json:"validator_pub_key"`
+	}{
+		Address:         u.Address.String(),
+		Amount:          big.NewInt(0).SetBytes(u.Amount).String(),
+		Coin:            u.Coin.String(),
+		ValidatorPubKey: u.ValidatorPubKey.String(),
+	})
 }
 
 func convertUnbound(event *UnbondEvent, pubKeyID uint16, addressID uint32) interface{} {
