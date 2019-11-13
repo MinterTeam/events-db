@@ -2,7 +2,7 @@ package events_db
 
 import (
 	"encoding/binary"
-	"github.com/MinterTeam/go-amino"
+	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tm-db"
 	"sync"
 )
@@ -78,7 +78,7 @@ func (store *eventsStore) LoadEvents(height uint32) Events {
 		return Events{}
 	}
 
-	var items []event
+	var items events
 	err := store.cdc.UnmarshalBinaryBare(bytes, &items)
 	if err != nil {
 		panic(err)
@@ -97,7 +97,7 @@ func (store *eventsStore) CommitEvents() error {
 
 	store.pending.Lock()
 	defer store.pending.Unlock()
-	var data []event
+	var data events
 	for _, item := range store.pending.items {
 		data = append(data, store.convert(item))
 	}

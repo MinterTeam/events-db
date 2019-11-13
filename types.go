@@ -1,8 +1,8 @@
 package events_db
 
 import (
-	"github.com/MinterTeam/go-amino"
 	"github.com/MinterTeam/minter-go-node/core/types"
+	"github.com/tendermint/go-amino"
 )
 
 func RegisterAminoEvents(codec *amino.Codec) {
@@ -43,6 +43,7 @@ func (r Role) String() string {
 }
 
 type event interface{}
+type events []event
 
 type reward struct {
 	Role      byte
