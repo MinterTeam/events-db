@@ -4,12 +4,11 @@ import (
 	"encoding/hex"
 	db "github.com/tendermint/tm-db"
 	"math/big"
-	"path/filepath"
 	"testing"
 )
 
 func TestIEventsDB(t *testing.T) {
-	store := NewEventsStore(db.NewDB("events", db.GoLevelDBBackend, filepath.Join(".", "data_test")))
+	store := NewEventsStore(db.NewMemDB())
 
 	{
 		amount, _ := big.NewInt(0).SetString("111497225000000000000", 10)
