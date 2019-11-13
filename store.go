@@ -79,7 +79,7 @@ func (store *eventsStore) LoadEvents(height uint32) Events {
 	}
 
 	var items []event
-	err := store.cdc.UnmarshalBinaryBare(bytes, &items)
+	err := store.cdc.UnmarshalBinaryLengthPrefixed(bytes, &items)
 	if err != nil {
 		panic(err)
 	}
@@ -102,7 +102,7 @@ func (store *eventsStore) CommitEvents() error {
 		data = append(data, store.convert(item))
 	}
 
-	bytes, err := store.cdc.MarshalBinaryBare(data)
+	bytes, err := store.cdc.MarshalBinaryLengthPrefixed(data)
 	if err != nil {
 		return err
 	}
