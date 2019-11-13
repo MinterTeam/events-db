@@ -1,4 +1,4 @@
-package compact_db
+package events_db
 
 import (
 	"encoding/hex"
