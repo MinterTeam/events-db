@@ -72,15 +72,16 @@ func (store *eventsStore) AddEvent(height uint32, event Event) {
 func (store *eventsStore) LoadEvents(height uint32) Events {
 	store.loadCache()
 
-	bytes, _ := store.db.Get(uint32ToBytes(height))
-
+	bytes, err := store.db.Get(uint32ToBytes(height))
+	if err != nil {
+		panic(err)
+	}
 	if len(bytes) == 0 {
 		return Events{}
 	}
 
 	var items []interface{}
-	err := store.cdc.UnmarshalBinaryBare(bytes, &items)
-	if err != nil {
+	if err := store.cdc.UnmarshalBinaryBare(bytes, &items); err != nil {
 		panic(err)
 	}
 
@@ -109,7 +110,9 @@ func (store *eventsStore) CommitEvents() error {
 
 	store.Lock()
 	defer store.Unlock()
-	_ = store.db.Set(uint32ToBytes(store.pending.height), bytes)
+	if err := store.db.Set(uint32ToBytes(store.pending.height), bytes); err != nil {
+		panic(err)
+	}
 	return nil
 }
 
@@ -163,8 +166,12 @@ func (store *eventsStore) saveAddress(address [20]byte) uint32 {
 	id := uint32(len(store.addressID))
 	store.cacheAddress(id, address)
 
-	_ = store.db.Set(append([]byte(addressPrefix), uint32ToBytes(id)...), address[:])
-	_ = store.db.Set([]byte(addressesCountKey), uint32ToBytes(uint32(len(store.addressID))))
+	if err := store.db.Set(append([]byte(addressPrefix), uint32ToBytes(id)...), address[:]); err != nil {
+		panic(err)
+	}
+	if err := store.db.Set([]byte(addressesCountKey), uint32ToBytes(uint32(len(store.addressID)))); err != nil {
+		panic(err)
+	}
 	return id
 }
 
@@ -178,22 +185,33 @@ func (store *eventsStore) savePubKey(validatorPubKey [32]byte) uint16 {
 	id := uint16(len(store.idPubKey))
 	store.cachePubKey(id, key)
 
-	_ = store.db.Set(append([]byte(pubKeyPrefix), uint16ToBytes(id)...), validatorPubKey[:])
-	_ = store.db.Set([]byte(pubKeysCountKey), uint16ToBytes(uint16(len(store.idPubKey))))
+	if err := store.db.Set(append([]byte(pubKeyPrefix), uint16ToBytes(id)...), validatorPubKey[:]); err != nil {
+		panic(err)
+	}
+	if err := store.db.Set([]byte(pubKeysCountKey), uint16ToBytes(uint16(len(store.idPubKey)))); err != nil {
+		panic(err)
+	}
 	return id
 }
 
 func (store *eventsStore) loadPubKeys() {
 	if count, _ := store.db.Get([]byte(pubKeysCountKey)); len(count) > 0 {
 		for id := uint16(0); id < binary.BigEndian.Uint16(count); id++ {
-			pubKey, _ := store.db.Get(append([]byte(pubKeyPrefix), uint16ToBytes(id)...))
+			pubKey, err := store.db.Get(append([]byte(pubKeyPrefix), uint16ToBytes(id)...))
+			if err != nil {
+				panic(err)
+			}
 			store.cachePubKey(id, string(pubKey))
 		}
 	}
 }
 
 func (store *eventsStore) loadAddresses() {
-	if count, _ := store.db.Get([]byte(addressesCountKey)); len(count) > 0 {
+	count, err := store.db.Get([]byte(addressesCountKey))
+	if err != nil {
+		panic(err)
+	}
+	if len(count) > 0 {
 		for id := uint32(0); id < binary.BigEndian.Uint32(count); id++ {
 			address, _ := store.db.Get(append([]byte(addressPrefix), uint32ToBytes(id)...))
 			var key [20]byte
