@@ -1,8 +1,8 @@
 package compact_db
 
 import (
-	"github.com/MinterTeam/go-amino"
 	"github.com/MinterTeam/minter-go-node/core/types"
+	"github.com/tendermint/go-amino"
 )
 
 func RegisterAminoEvents(codec *amino.Codec) {

@@ -2,8 +2,8 @@ package compact_db
 
 import (
 	"encoding/binary"
-	"github.com/MinterTeam/go-amino"
-	"github.com/tendermint/tm-db"
+	"github.com/tendermint/go-amino"
+	db "github.com/tendermint/tm-db"
 	"sync"
 )
 
