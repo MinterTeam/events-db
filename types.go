@@ -67,7 +67,7 @@ type reward struct {
 }
 
 type RewardEvent struct {
-	Role            string        `json:"NewRole"`
+	Role            string        `json:"role"`
 	Address         types.Address `json:"address"`
 	Amount          string        `json:"amount"`
 	ValidatorPubKey types.Pubkey  `json:"validator_pub_key"`
