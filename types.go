@@ -8,11 +8,11 @@ import (
 func RegisterAminoEvents(codec *amino.Codec) {
 	codec.RegisterInterface((*Event)(nil), nil)
 	codec.RegisterConcrete(RewardEvent{},
-		"RewardEvent", nil)
+		"minter/RewardEvent", nil)
 	codec.RegisterConcrete(SlashEvent{},
-		"SlashEvent", nil)
+		"minter/SlashEvent", nil)
 	codec.RegisterConcrete(UnbondEvent{},
-		"UnbondEvent", nil)
+		"minter/UnbondEvent", nil)
 }
 
 type Event interface{}
