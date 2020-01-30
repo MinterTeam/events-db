@@ -1,6 +1,7 @@
 package compact_db
 
 import (
+	"fmt"
 	"github.com/MinterTeam/minter-go-node/core/types"
 	"github.com/tendermint/go-amino"
 	"math/big"
@@ -40,18 +41,33 @@ func (r Role) String() string {
 		return "Developers"
 	}
 
-	return "Undefined"
+	panic(fmt.Sprintf("undefined role: %d", r))
+}
+
+func NewRole(r string) Role {
+	switch r {
+	case "Validator":
+		return RoleValidator
+	case "Delegator":
+		return RoleDelegator
+	case "DAO":
+		return RoleDAO
+	case "Developers":
+		return RoleDevelopers
+	}
+
+	panic("undefined role: " + r)
 }
 
 type reward struct {
-	Role      byte
+	Role      Role
 	AddressID uint32
 	Amount    []byte
 	PubKeyID  uint16
 }
 
 type RewardEvent struct {
-	Role            Role          `json:"role"`
+	Role            string        `json:"NewRole"`
 	Address         types.Address `json:"address"`
 	Amount          string        `json:"amount"`
 	ValidatorPubKey types.Pubkey  `json:"validator_pub_key"`
@@ -60,7 +76,7 @@ type RewardEvent struct {
 func rewardConvert(event *RewardEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(reward)
 	result.AddressID = addressID
-	result.Role = byte(event.Role)
+	result.Role = NewRole(event.Role)
 	bi, _ := big.NewInt(0).SetString(event.Amount, 10)
 	result.Amount = bi.Bytes()
 	result.PubKeyID = pubKeyID
@@ -71,7 +87,7 @@ func compileReward(item *reward, pubKey string, address [20]byte) interface{} {
 	event := new(RewardEvent)
 	copy(event.ValidatorPubKey[:], pubKey)
 	copy(event.Address[:], address[:])
-	event.Role = Role(item.Role)
+	event.Role = item.Role.String()
 	event.Amount = big.NewInt(0).SetBytes(item.Amount).String()
 	return event
 }
