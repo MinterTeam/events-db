@@ -3,6 +3,7 @@ package compact_db
 import (
 	"github.com/MinterTeam/minter-go-node/core/types"
 	"github.com/tendermint/go-amino"
+	"math/big"
 )
 
 func RegisterAminoEvents(codec *amino.Codec) {
@@ -50,17 +51,18 @@ type reward struct {
 }
 
 type RewardEvent struct {
-	Role            Role
-	Address         types.Address
-	Amount          []byte
-	ValidatorPubKey types.Pubkey
+	Role            Role          `json:"role"`
+	Address         types.Address `json:"address"`
+	Amount          string        `json:"amount"`
+	ValidatorPubKey types.Pubkey  `json:"validator_pub_key"`
 }
 
 func rewardConvert(event *RewardEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(reward)
 	result.AddressID = addressID
 	result.Role = byte(event.Role)
-	result.Amount = event.Amount
+	bi, _ := big.NewInt(0).SetString(event.Amount, 10)
+	result.Amount = bi.Bytes()
 	result.PubKeyID = pubKeyID
 	return result
 }
@@ -70,7 +72,7 @@ func compileReward(item *reward, pubKey string, address [20]byte) interface{} {
 	copy(event.ValidatorPubKey[:], pubKey)
 	copy(event.Address[:], address[:])
 	event.Role = Role(item.Role)
-	event.Amount = item.Amount
+	event.Amount = big.NewInt(0).SetBytes(item.Amount).String()
 	return event
 }
 
@@ -82,17 +84,18 @@ type slash struct {
 }
 
 type SlashEvent struct {
-	Address         types.Address
-	Amount          []byte
-	Coin            types.CoinSymbol
-	ValidatorPubKey types.Pubkey
+	Address         types.Address    `json:"address"`
+	Amount          string           `json:"amount"`
+	Coin            types.CoinSymbol `json:"coin"`
+	ValidatorPubKey types.Pubkey     `json:"validator_pub_key"`
 }
 
 func convertSlash(event *SlashEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(slash)
 	result.AddressID = addressID
 	copy(result.Coin[:], event.Coin[:])
-	result.Amount = event.Amount
+	bi, _ := big.NewInt(0).SetString(event.Amount, 10)
+	result.Amount = bi.Bytes()
 	result.PubKeyID = pubKeyID
 	return result
 }
@@ -102,7 +105,7 @@ func compileSlash(item *slash, pubKey string, address [20]byte) interface{} {
 	copy(event.ValidatorPubKey[:], pubKey)
 	copy(event.Address[:], address[:])
 	copy(event.Coin[:], item.Coin[:])
-	event.Amount = item.Amount
+	event.Amount = big.NewInt(0).SetBytes(item.Amount).String()
 	return event
 }
 
@@ -114,17 +117,18 @@ type unbond struct {
 }
 
 type UnbondEvent struct {
-	Address         types.Address
-	Amount          []byte
-	Coin            types.CoinSymbol
-	ValidatorPubKey types.Pubkey
+	Address         types.Address    `json:"address"`
+	Amount          string           `json:"amount"`
+	Coin            types.CoinSymbol `json:"coin"`
+	ValidatorPubKey types.Pubkey     `json:"validator_pub_key"`
 }
 
 func convertUnbound(event *UnbondEvent, pubKeyID uint16, addressID uint32) interface{} {
 	result := new(unbond)
 	result.AddressID = addressID
 	copy(result.Coin[:], event.Coin[:])
-	result.Amount = event.Amount
+	bi, _ := big.NewInt(0).SetString(event.Amount, 10)
+	result.Amount = bi.Bytes()
 	result.PubKeyID = pubKeyID
 	return result
 }
@@ -134,6 +138,6 @@ func compileUnbond(item *unbond, pubKey string, address [20]byte) interface{} {
 	copy(event.ValidatorPubKey[:], pubKey)
 	copy(event.Address[:], address[:])
 	copy(event.Coin[:], item.Coin[:])
-	event.Amount = item.Amount
+	event.Amount = big.NewInt(0).SetBytes(item.Amount).String()
 	return event
 }

@@ -15,7 +15,7 @@ func TestIEventsDB(t *testing.T) {
 		event := RewardEvent{
 			Role:            RoleDevelopers,
 			Address:         [20]byte{},
-			Amount:          amount.Bytes(),
+			Amount:          amount.String(),
 			ValidatorPubKey: [32]byte{},
 		}
 		bytesAddress, err := hex.DecodeString("Mx04bea23efb744dc93b4fda4c20bf4a21c6e195f1"[2:])
@@ -35,7 +35,7 @@ func TestIEventsDB(t *testing.T) {
 		event := RewardEvent{
 			Role:            RoleValidator,
 			Address:         [20]byte{},
-			Amount:          amount.Bytes(),
+			Amount:          amount.String(),
 			ValidatorPubKey: [32]byte{},
 		}
 		bytesAddress, err := hex.DecodeString("Mx18467bbb64a8edf890201d526c35957d82be3d95"[2:])
@@ -58,7 +58,7 @@ func TestIEventsDB(t *testing.T) {
 	loadEvents := store.LoadEvents(12)
 	for _, v := range loadEvents {
 		t.Logf("%+v", v)
-		t.Logf("%+v", big.NewInt(0).SetBytes(v.(*RewardEvent).Amount).String())
+		t.Logf("%+v", v.(*RewardEvent).Amount)
 		t.Logf("%+v", v.(*RewardEvent).Address.String())
 	}
 }
